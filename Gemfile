@@ -8,7 +8,7 @@ gem "propshaft"
 gem "pg", "~> 1.5"
 
 group :development, :test do
-  gem "sqlite3", "~> 1.7"
+  gem "sqlite3", ">= 2.1"
 end
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"

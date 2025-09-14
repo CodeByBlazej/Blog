@@ -85,3 +85,9 @@ production:
     
   cable:
     <<: *primary_production
+
+  queue:
+    <<: *primary_production
+
+  cache:
+    <<: *primary_production

@@ -8,97 +8,87 @@ on:
 jobs:
   scan_ruby:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-
       - name: Scan for common Rails security vulnerabilities using static analysis
         run: bin/brakeman --no-pager
 
   scan_js:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: .ruby-version
           bundler-cache: true
-
       - name: Scan for security vulnerabilities in JavaScript dependencies
         run: bin/importmap audit
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - name: Lint code for consistent style
+        run: bin/rubocop -f github
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: blog_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/blog_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: .ruby-version
           bundler-cache: true
 
-      - name: Lint code for consistent style
-        run: bin/rubocop -f github
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential libpq-dev libyaml-dev
 
-test:
-  runs-on: ubuntu-latest
+      # Chrome for system tests (headless)
+      - uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+      - name: Expose CHROME_BIN
+        run: echo "CHROME_BIN=${{ steps.setup-chrome.outputs.chrome-path }}" >> $GITHUB_ENV
 
-  services:
-    postgres:
-      image: postgres:16
-      env:
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: postgres
-        POSTGRES_DB: blog_test
-      ports: ["5432:5432"]
-      options: >-
-        --health-cmd="pg_isready -U postgres"
-        --health-interval=10s
-        --health-timeout=5s
-        --health-retries=5
+      - name: Prepare DB
+        run: bin/rails db:prepare
 
-  env:
-    RAILS_ENV: test
-    DATABASE_URL: postgres://postgres:postgres@localhost:5432/blog_test
+      - name: Run tests
+        run: bin/rails test test:system
 
-  steps:
-    - name: Install system packages
-      run: |
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y build-essential libpq-dev libyaml-dev
-
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: .ruby-version
-        bundler-cache: true
-
-    - name: Prepare DB
-      run: bin/rails db:prepare
-
-    - name: Run tests
-      run: bin/rails test test:system
-
-    - name: Keep screenshots from failed system tests
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: screenshots
-        path: ${{ github.workspace }}/tmp/screenshots
-        if-no-files-found: ignore
+      - name: Keep screenshots from failed system tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ${{ github.workspace }}/tmp/screenshots
+          if-no-files-found: ignore

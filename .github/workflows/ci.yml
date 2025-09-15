@@ -74,7 +74,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential libpq-dev libyaml-dev
 
       # Chrome for system tests (headless)
-      - uses: browser-actions/setup-chrome@v1
+      - uses: browser-actions/setup-chrome@v2
         id: setup-chrome
       - name: Expose CHROME_BIN
         run: echo "CHROME_BIN=${{ steps.setup-chrome.outputs.chrome-path }}" >> $GITHUB_ENV
